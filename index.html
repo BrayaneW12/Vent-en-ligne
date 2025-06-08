@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Licences Express - Paiement</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    (function(){
+      emailjs.init("07sFqvQcpzJEPkJba"); // Remplace par ta clé public EmailJS
+    })();
+  </script>
+  <style>
+    body { padding-top: 4rem; background-color: #f8f9fa; }
+    .banner { text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #007BFF, #0056b3); color: white; }
+    .btn-primary { background-color: #007BFF; border: none; }
+    .card:hover { transform: scale(1.05); }
+    .whatsapp-chat {
+      position: fixed; bottom: 20px; right: 20px;
+      background: #25D366; color: white;
+      padding: 10px 15px; border-radius: 50px;
+      text-decoration: none; font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="#">Licences Express</a>
+  </div>
+</nav>
+
+<header class="banner">
+  <h1>🔥 PROMO -30% sur les licences</h1>
+  <p>Ajoutez vos produits au panier et payez en ligne</p>
+</header>
+
+<section class="py-5">
+  <div class="container">
+    <div class="row">
+      <!-- Produits -->
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body text-center">
+            <h5>Windows 10/11</h5>
+            <p>Prix : 50€</p>
+            <button class="btn btn-primary" onclick="addToCart('Windows 10/11', 50)">Ajouter au panier</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body text-center">
+            <h5>Kaspersky Sécurité</h5>
+            <p>Prix : 40€</p>
+            <button class="btn btn-primary" onclick="addToCart('Kaspersky Sécurité', 40)">Ajouter au panier</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panier -->
+    <div class="mt-5" id="panier">
+      <h4>Votre panier est vide</h4>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="mt-5">
+      <h3>Envoyer votre commande</h3>
+      <form id="venteForm">
+        <div class="mb-3">
+          <label>Nom du client</label>
+          <input type="text" name="nomClient" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label>Email du client</label>
+          <input type="email" name="emailClient" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-success">Envoyer la commande</button>
+        <button type="button" class="btn btn-secondary ms-2" onclick="openWhatsApp()">📲 Envoyer sur WhatsApp</button>
+      </form>
+      <div id="confirmation" class="mt-3 text-success fw-bold"></div>
+      <div id="erreur" class="mt-2 text-danger"></div>
+    </div>
+
+    <!-- Paiement -->
+    <div id="paypal-button-container" class="mt-4"></div>
+  </div>
+</section>
+
+<!-- WhatsApp fixe -->
+<a href="https://wa.me/2250594612387" class="whatsapp-chat">📲 Chat WhatsApp</a>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=sb&currency=EUR"></script>
+
+<script>
+  let cart = [];
+
+  function addToCart(nom, prix) {
+    const exist = cart.find(item => item.nom === nom);
+    if (exist) {
+      exist.quantite++;
+    } else {
+      cart.push({ nom, prix, quantite: 1 });
+    }
+    updateCart();
+  }
+
+  function removeFromCart(nom) {
+    cart = cart.filter(item => item.nom !== nom);
+    updateCart();
+  }
+
+  function changeQuantity(nom, qte) {
+    const item = cart.find(i => i.nom === nom);
+    if (item && qte >= 1) {
+      item.quantite = parseInt(qte);
+      updateCart();
+    }
+  }
+
+  function updateCart() {
+    const div = document.getElementById("panier");
+    if (cart.length === 0) {
+      div.innerHTML = "<h4>Votre panier est vide</h4>";
+      return;
+    }
+    let html = "<h4>Votre panier :</h4><ul>";
+    let total = 0;
+    cart.forEach(item => {
+      total += item.prix * item.quantite;
+      html += `<li>${item.nom} - ${item.prix}€ x 
+        <input type="number" value="${item.quantite}" min="1" onchange="changeQuantity('${item.nom}', this.value)" style="width: 60px;">
+        <button class="btn btn-sm btn-danger ms-2" onclick="removeFromCart('${item.nom}')">Supprimer</button>
+      </li>`;
+    });
+    html += `</ul><strong>Total : ${total}€</strong>`;
+    div.innerHTML = html;
+  }
+
+  paypal.Buttons({
+    createOrder: function(data, actions) {
+      const total = cart.reduce((sum, item) => sum + item.prix * item.quantite, 0);
+      return actions.order.create({
+        purchase_units: [{
+          amount: { value: total.toFixed(2) }
+        }]
+      });
+    },
+    onApprove: function(data, actions) {
+      return actions.order.capture().then(function(details) {
+        alert('Merci ' + details.payer.name.given_name + '! Paiement effectué.');
+        cart = [];
+        updateCart();
+      });
+    }
+  }).render('#paypal-button-container');
+
+  document.getElementById('venteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const nomClient = form.nomClient.value;
+    const emailClient = form.emailClient.value;
+    if (cart.length === 0) {
+      alert("Votre panier est vide !");
+      return;
+    }
+
+    const produits = cart.map(i => `${i.nom} x${i.quantite}`).join(', ');
+    const total = cart.reduce((sum, i) => sum + i.prix * i.quantite, 0);
+
+    // EmailJS
+    emailjs.send("service_n0v1foc", "template_dnuu4p5", {
+      produit: produits,
+      quantite: cart.length,
+      prix: total,
+      nomClient: nomClient,
+      emailClient: emailClient
+    }).then(() => {
+      document.getElementById("confirmation").innerText = "Commande envoyée avec succès par email !";
+      document.getElementById("erreur").innerText = "";
+      generatePDF(nomClient, produits, total);
+      cart = [];
+      updateCart();
+      form.reset();
+    }, (error) => {
+      document.getElementById("erreur").innerText = "Erreur EmailJS : " + JSON.stringify(error);
+    });
+
+    // Google Sheets
+    fetch("https://script.google.com/macros/s/AKfycbzKjcXFJjY7Crj5_SD92BnTbxC_NUUuCm555wxhrcQw1Cj3Lnw43cwG5bguFZ3Nb4tABg/exec", {
+      method: 'POST',
+      body: new URLSearchParams({
+        nomClient: nomClient,
+        emailClient: emailClient,
+        produit: produits,
+        quantite: cart.length,
+        prix: total
+      })
+    });
+  });
+
+  function openWhatsApp() {
+    if (cart.length === 0) {
+      alert("Votre panier est vide !");
+      return;
+    }
+    let message = "Bonjour, je souhaite commander :\n";
+    cart.forEach(item => {
+      message += `- ${item.nom} x${item.quantite}\n`;
+    });
+    const url = `https://wa.me/2250594612387?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  }
+
+  function generatePDF(nom, produits, total) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text(`Reçu - Licences Express`, 20, 20);
+    doc.text(`Client : ${nom}`, 20, 30);
+    doc.text(`Produits : ${produits}`, 20, 40);
+    doc.text(`Total : ${total}€`, 20, 50);
+    doc.save("recu-commande.pdf");
+  }
+</script>
+
+</body>
+</html>
